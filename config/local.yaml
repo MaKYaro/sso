@@ -1,0 +1,16 @@
+---
+env: local
+
+db_connection:
+  user: postgres
+  password: postgres
+  host: localhost
+  port: 5432
+  db_name: sso
+
+grpc_server:
+  port: 8080
+  address: localhost
+  timeout: 3s
+
+token_ttl: 30m

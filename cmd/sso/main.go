@@ -3,6 +3,7 @@ package main
 import (
 	"log/slog"
 
+	"github.com/MaKYaro/sso/internal/app"
 	"github.com/MaKYaro/sso/internal/config"
 	log "github.com/MaKYaro/sso/internal/logger"
 )
@@ -13,15 +14,19 @@ func main() {
 	cfg := config.MustLoad()
 
 	// init logger
-	logger := log.New(cfg.Env)
-	logger.Debug("debug messages are enabled")
+	log := log.New(cfg.Env)
+	log.Debug("debug messages are enabled")
+
+	// init application
+	application := app.New(log, cfg.GRPCServer.Port, &cfg.DBConnection, cfg.TokenTTL)
 
 	// start application
-	logger.Info(
+	log.Info(
 		"starting application",
 		slog.String("env", cfg.Env),
 		slog.Int("port", cfg.GRPCServer.Port),
 	)
-	logger.Debug("config", slog.Any("", cfg))
+	log.Debug("config", slog.Any("", cfg))
 
+	application.GRPCServer.MustRun()
 }

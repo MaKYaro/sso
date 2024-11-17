@@ -2,6 +2,9 @@ package main
 
 import (
 	"log/slog"
+	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/MaKYaro/sso/internal/app"
 	"github.com/MaKYaro/sso/internal/config"
@@ -28,5 +31,14 @@ func main() {
 	)
 	log.Debug("config", slog.Any("", cfg))
 
-	application.GRPCServer.MustRun()
+	go application.GRPCServer.MustRun()
+
+	// graceful shutdown
+	stop := make(chan os.Signal, 1)
+	signal.Notify(stop, syscall.SIGTERM, syscall.SIGINT)
+
+	<-stop
+
+	application.GRPCServer.Stop()
+	log.Info("application stopped")
 }

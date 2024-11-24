@@ -2,12 +2,19 @@ package auth
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"time"
 
 	"github.com/MaKYaro/sso/internal/domain/models"
+	"github.com/MaKYaro/sso/internal/lib/jwt"
+	"github.com/MaKYaro/sso/internal/storage"
 	"golang.org/x/crypto/bcrypt"
+)
+
+var (
+	ErrInvalidCredentials = errors.New("invalid credentials")
 )
 
 // UserSaver is an interface that defines the method for saving user information.
@@ -67,7 +74,66 @@ func (a *Auth) Login(
 	password string,
 	appID int,
 ) (string, error) {
-	panic("not implemented")
+	const op = "internal.service.auth.Login"
+
+	log := a.log.With(
+		slog.String("op", op),
+		slog.String("user email", email),
+	)
+
+	log.Info("try to login user")
+
+	user, err := a.userProvider.User(ctx, email)
+	if errors.Is(err, storage.ErrUserNotFound) {
+		log.Warn(
+			"user not found",
+			slog.String("error", err.Error()),
+		)
+		return "", fmt.Errorf("%s: %w", op, ErrInvalidCredentials)
+	}
+	if err != nil {
+		log.Error(
+			"failed to login user",
+			slog.String("error", err.Error()),
+		)
+		return "", fmt.Errorf("%s: %w", op, err)
+	}
+
+	if err := bcrypt.CompareHashAndPassword(user.PassHash, []byte(password)); err != nil {
+		log.Warn(
+			"invalid password",
+			slog.String("error", err.Error()),
+		)
+		return "", fmt.Errorf("%s: %w", op, ErrInvalidCredentials)
+	}
+
+	app, err := a.appProvider.App(ctx, appID)
+	if errors.Is(err, storage.ErrAppNotFound) {
+		log.Error(
+			"app doesn't exist",
+			slog.String("error", err.Error()),
+		)
+	}
+	if err != nil {
+		log.Error(
+			"failed to get app info",
+			slog.String("error", err.Error()),
+		)
+		return "", fmt.Errorf("%s: %w", op, err)
+	}
+
+	log.Info("user logged in successfully")
+
+	token, err := jwt.NewToken(user, app, a.tokenTTL)
+	if err != nil {
+		log.Error(
+			"failed to generate token",
+			slog.String("error", err.Error()),
+		)
+		return "", fmt.Errorf("%s: %w", op, err)
+	}
+
+	return token, nil
 }
 
 // RegisterNewUser registers new user with given credentials.
@@ -82,7 +148,7 @@ func (a *Auth) RegisterNewUser(
 
 	log := a.log.With(
 		slog.String("op", op),
-		slog.String("email", email),
+		slog.String("user email", email),
 	)
 
 	log.Info("registering new user")

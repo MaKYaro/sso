@@ -68,10 +68,10 @@ func (a *Auth) Login(
 	panic("not implemented")
 }
 
-// Register registers new user with given credentials.
+// RegisterNewUser registers new user with given credentials.
 //
 // If the user exists returns error.
-func (a *Auth) Register(
+func (a *Auth) RegisterNewUser(
 	ctx context.Context,
 	email string,
 	password string,

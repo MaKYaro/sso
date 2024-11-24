@@ -2,10 +2,12 @@ package auth
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"time"
 
 	"github.com/MaKYaro/sso/internal/domain/models"
+	"golang.org/x/crypto/bcrypt"
 )
 
 // UserSaver is an interface that defines the method for saving user information.
@@ -75,8 +77,35 @@ func (a *Auth) RegisterNewUser(
 	ctx context.Context,
 	email string,
 	password string,
-) (int, error) {
-	panic("not impelemented")
+) (int64, error) {
+	const op = "internal.service.auth.RegisterNewUser"
+
+	log := a.log.With(
+		slog.String("op", op),
+		slog.String("email", email),
+	)
+
+	log.Info("registering new user")
+
+	passHash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		log.Error(
+			"failed to generate password hash",
+			slog.String("error", err.Error()),
+		)
+		return 0, fmt.Errorf("%s: %w", op, err)
+	}
+
+	userID, err := a.userSaver.SaveUser(ctx, email, passHash)
+	if err != nil {
+		log.Error(
+			"failed to save user",
+			slog.String("error", err.Error()),
+		)
+		return 0, fmt.Errorf("%s: %w", op, err)
+	}
+
+	return userID, nil
 }
 
 // Auth checks if the user with given userID is an admin
